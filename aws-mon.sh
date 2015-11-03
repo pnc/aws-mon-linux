@@ -20,11 +20,6 @@
 SCRIPT_NAME=${0##*/} 
 SCRIPT_VERSION=1.1 
 
-instanceid=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`
-azone=`wget -q -O - http://169.254.169.254/latest/meta-data/placement/availability-zone`
-region=${azone/%?/}
-export EC2_REGION=$region
-
 
 ########################################
 # Constants
@@ -46,6 +41,7 @@ usage()
     printf "    %-28s %s\n" "--verify" "Checks configuration and prepares a remote call."
     printf "    %-28s %s\n" "--verbose" "Displays details of what the script is doing."
     printf "    %-28s %s\n" "--debug" "Displays information for debugging."
+    printf "    %-28s %s\n" "--dimensions Label1=Value1,Label2=Value2" "CloudWatch dimensions under which the metrics are reported; if not provided, the EC2 metadata service will be used to automatically discover the instance ID."
     printf "    %-28s %s\n" "--from-cron" "Use this option when calling the script from cron."
     printf "    %-28s %s\n" "--profile VALUE" "Use a specific profile from your credential file."
     printf "    %-28s %s\n" "--load-ave1" "Reports load average for 1 minute in counts."
@@ -137,6 +133,9 @@ while true; do
         --from-cron)
             FROM_CRON=1
             ;;
+        --dimensions)
+            shift
+            DIMENSIONS=$1
         # Profile
         --profile)
             shift
@@ -251,6 +250,19 @@ while true; do
     shift 
 done
 
+########################################
+# EC2 Automatic Configuration
+########################################
+
+# If no dimensions are provided, attempt to automatically set a
+# dimension and region by examining the EC2 metadata service.
+if [ -z "$DIMENSIONS" ]; then
+    instanceid=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`
+    DIMENSIONS="--dimensions InstanceId=$instanceid"
+    azone=`wget -q -O - http://169.254.169.254/latest/meta-data/placement/availability-zone`
+    region=${azone/%?/}
+    export EC2_REGION=$region
+fi
 
 ########################################
 # Command Output
@@ -317,7 +329,7 @@ if [ $FROM_CRON -eq 1 ]; then
 fi
 
 # CloudWatch Command Line Interface Option
-CLOUDWATCH_OPTS="--namespace System/Detail/Linux --dimensions InstanceId=$instanceid"
+CLOUDWATCH_OPTS="--namespace System/Detail/Linux --dimensions $DIMENSIONS"
 if [ -n "$PROFILE" ]; then
     CLOUDWATCH_OPTS="$CLOUDWATCH_OPTS --profile $PROFILE"
 fi

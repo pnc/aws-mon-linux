@@ -93,6 +93,7 @@ Name                       | Description
 --verbose                  | Displays details of what the script is doing.
 --debug                    | Displays information for debugging.
 --from-cron                | Use this option when calling the script from cron.
+--dimensions Label1=Value1 | CloudWatch dimensions under which the metrics are reported; if not provided, the EC2 metadata service will be used to automatically discover the instance ID.
 --profile VALUE            | Use a specific profile from your credential file.
 --load-ave1                | Reports load average for 1 minute in counts.
 --load-ave5                | Reports load average for 5 minutes in counts.
