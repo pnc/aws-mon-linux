@@ -19,7 +19,7 @@
 ########################################
 SCRIPT_NAME=${0##*/} 
 SCRIPT_VERSION=1.1 
-
+NAMESPACE="System/Detail/Linux"
 
 ########################################
 # Constants
@@ -41,6 +41,7 @@ usage()
     printf "    %-28s %s\n" "--verify" "Checks configuration and prepares a remote call."
     printf "    %-28s %s\n" "--verbose" "Displays details of what the script is doing."
     printf "    %-28s %s\n" "--debug" "Displays information for debugging."
+    printf "    %-28s %s\n" "--region VALUE" "The AWS region in which to report the metric; if not provided, the EC2 metadata service will be used to automatically discover the instance's region."
     printf "    %-28s %s\n" "--dimensions Label1=Value1,Label2=Value2" "CloudWatch dimensions under which the metrics are reported; if not provided, the EC2 metadata service will be used to automatically discover the instance ID."
     printf "    %-28s %s\n" "--from-cron" "Use this option when calling the script from cron."
     printf "    %-28s %s\n" "--profile VALUE" "Use a specific profile from your credential file."
@@ -75,7 +76,7 @@ usage()
 # Options
 ########################################
 SHORT_OPTS="h"
-LONG_OPTS="help,version,verify,verbose,debug,from-cron,profile:,load-ave1,load-ave5,load-ave15,interrupt,context-switch,cpu-us,cpu-sy,cpu-id,cpu-wa,cpu-st,memory-units:,mem-used-incl-cache-buff,mem-util,mem-used,mem-avail,swap-util,swap-used,swap-avail,disk-path:,disk-space-units:,disk-space-util,disk-space-used,disk-space-avail,all-items" 
+LONG_OPTS="help,version,verify,verbose,namespace:,dimensions:,region:,debug,from-cron,profile:,load-ave1,load-ave5,load-ave15,interrupt,context-switch,cpu-us,cpu-sy,cpu-id,cpu-wa,cpu-st,memory-units:,mem-used-incl-cache-buff,mem-util,mem-used,mem-avail,swap-util,swap-used,swap-avail,disk-path:,disk-space-units:,disk-space-util,disk-space-used,disk-space-avail,all-items"
 
 ARGS=$(getopt -s bash --options $SHORT_OPTS --longoptions $LONG_OPTS --name $SCRIPT_NAME -- "$@" ) 
 
@@ -133,9 +134,18 @@ while true; do
         --from-cron)
             FROM_CRON=1
             ;;
+        --namespace)
+            shift
+            NAMESPACE=$1
+            ;;
+        --region)
+            shift
+            EC2_REGION=$1
+            ;;
         --dimensions)
             shift
             DIMENSIONS=$1
+            ;;
         # Profile
         --profile)
             shift
@@ -259,9 +269,12 @@ done
 if [ -z "$DIMENSIONS" ]; then
     instanceid=`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id`
     DIMENSIONS="--dimensions InstanceId=$instanceid"
+fi
+
+if [ -z "$EC2_REGION" ]; then
     azone=`wget -q -O - http://169.254.169.254/latest/meta-data/placement/availability-zone`
     region=${azone/%?/}
-    export EC2_REGION=$region
+    EC2_REGION=$region
 fi
 
 ########################################
@@ -329,7 +342,7 @@ if [ $FROM_CRON -eq 1 ]; then
 fi
 
 # CloudWatch Command Line Interface Option
-CLOUDWATCH_OPTS="--namespace System/Detail/Linux --dimensions $DIMENSIONS"
+CLOUDWATCH_OPTS="--namespace $NAMESPACE --dimensions $DIMENSIONS --region $EC2_REGION"
 if [ -n "$PROFILE" ]; then
     CLOUDWATCH_OPTS="$CLOUDWATCH_OPTS --profile $PROFILE"
 fi
